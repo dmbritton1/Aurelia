@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import CategoryPicker from "./CategoryPicker";
 import PerspectiveSlider from "./PerspectiveSlider";
 import LengthSlider from "./LengthSlider";
+import { WRITER_MODELS, DEFAULT_WRITER_MODEL } from "@/lib/models";
 
 interface AutomationData {
   name: string;
@@ -13,6 +14,7 @@ interface AutomationData {
   perspective: string;
   length: string;
   frequency: string;
+  model?: string;
 }
 
 interface AutomationFormProps {
@@ -32,13 +34,14 @@ export default function AutomationForm({ initial, automationId, mode }: Automati
   const [perspective, setPerspective] = useState(initial?.perspective || "balanced");
   const [length, setLength] = useState(initial?.length || "standard");
   const [frequency, setFrequency] = useState(initial?.frequency || "daily");
+  const [model, setModel] = useState(initial?.model || DEFAULT_WRITER_MODEL);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError("");
 
-    const body = { name, topic_prompt: topicPrompt, categories, perspective, length, frequency };
+    const body = { name, topic_prompt: topicPrompt, categories, perspective, length, frequency, model };
 
     try {
       const url = mode === "edit" ? `/api/automations/${automationId}` : "/api/automations";
@@ -140,6 +143,58 @@ export default function AutomationForm({ initial, automationId, mode }: Automati
         hint="Controls how many sections and how much depth each digest is written to. Longer settings also pull from a wider range of stories."
       >
         <LengthSlider value={length} onChange={setLength} />
+      </FieldGroup>
+
+      <FieldGroup
+        label="Writer Model"
+        hint="Which Gemma model writes the digest. 31B is higher quality but slower; 26B is faster."
+      >
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.5rem" }}>
+          {WRITER_MODELS.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => setModel(m.id)}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.25rem",
+                fontFamily: "var(--font-ui)",
+                padding: "0.75rem",
+                borderRadius: "6px",
+                textAlign: "left",
+                border:
+                  model === m.id
+                    ? "1px solid rgba(244,185,66,0.4)"
+                    : "1px solid var(--nf-border)",
+                background: model === m.id ? "rgba(244,185,66,0.1)" : "var(--nf-paper)",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+                outline: "none",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  color: model === m.id ? "var(--nf-gold)" : "var(--nf-bright)",
+                }}
+              >
+                {m.label}
+              </span>
+              <span
+                style={{
+                  fontSize: "0.68rem",
+                  fontWeight: 500,
+                  color: "var(--nf-muted)",
+                }}
+              >
+                {m.hint}
+              </span>
+            </button>
+          ))}
+        </div>
       </FieldGroup>
 
       <FieldGroup label="Digest Frequency" hint="How often new content should be generated">

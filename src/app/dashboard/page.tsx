@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import AutomationCard from "@/components/AutomationCard";
 import ApiKeySetup from "@/components/ApiKeySetup";
+import PhoneSetup from "@/components/PhoneSetup";
+import EmailSetup from "@/components/EmailSetup";
 
 interface Automation {
   id: string;
@@ -152,6 +154,8 @@ export default function DashboardPage() {
       {/* Content */}
       <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "2.5rem 1.5rem" }}>
         <ApiKeySetup />
+        <PhoneSetup />
+        <EmailSetup />
 
         {loading ? (
           <div

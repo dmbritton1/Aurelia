@@ -1,4 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { withRetry } from "./retry";
+import { DEFAULT_WRITER_MODEL, normalizeModel } from "./models";
 import {
   extractGroundingItems,
   buildAuthoritativeArticles,
@@ -6,7 +8,6 @@ import {
   type RawModelArticle,
 } from "./source-urls";
 
-const GEMMA_MODEL = "gemma-4-26b-a4b-it";
 const GEMINI_SEARCH_MODEL = "gemini-2.5-flash";
 
 // Maps the user-selected digest length to how many articles to gather and how
@@ -100,7 +101,13 @@ Respond with ONLY a JSON array, no other text:
   ...
 ]`;
 
-  const result = await model.generateContent(prompt);
+  const result = await withRetry(() => model.generateContent(prompt), {
+    onRetry: (err, attempt, delay) =>
+      console.warn(
+        `[ai] search model transient error — retry ${attempt} in ${Math.round(delay)}ms:`,
+        err instanceof Error ? err.message : err
+      ),
+  });
   const responseText = result.response.text();
 
   // Parse the raw article list the model wrote. Its URLs are NOT trustworthy —
@@ -161,10 +168,11 @@ async function writeNewsletter(
   topicPrompt: string,
   perspective: string,
   length: string,
-  geminiApiKey: string
+  geminiApiKey: string,
+  writerModel: string
 ): Promise<{ title: string; html: string }> {
   const genAI = new GoogleGenerativeAI(geminiApiKey);
-  const model = genAI.getGenerativeModel({ model: GEMMA_MODEL });
+  const model = genAI.getGenerativeModel({ model: writerModel });
 
   // Give the writer more raw stories to work with for longer digests.
   const articleCap = length === "comprehensive" ? 30 : length === "detailed" ? 20 : 15;
@@ -218,7 +226,13 @@ TITLE: Your Newsletter Title
 <h2>Section</h2>
 <p>Text with <a href="url">Source</a> citations.</p>`;
 
-  const result = await model.generateContent(prompt);
+  const result = await withRetry(() => model.generateContent(prompt), {
+    onRetry: (err, attempt, delay) =>
+      console.warn(
+        `[ai] Gemma writer transient error — retry ${attempt} in ${Math.round(delay)}ms:`,
+        err instanceof Error ? err.message : err
+      ),
+  });
 
   // Extract non-thinking text
   let responseText = "";
@@ -275,7 +289,8 @@ export async function searchAndGenerateNewsletter(
   perspective: string,
   categories: string[],
   geminiApiKey: string,
-  length: string = "standard"
+  length: string = "standard",
+  writerModel: string = DEFAULT_WRITER_MODEL
 ): Promise<NewsletterContent> {
   // Step 1: Find articles with Google Search (via Gemini 2.0 Flash)
   const { articles, groundedText } = await searchForArticles(
@@ -296,7 +311,8 @@ export async function searchAndGenerateNewsletter(
     topicPrompt,
     perspective,
     length,
-    geminiApiKey
+    geminiApiKey,
+    normalizeModel(writerModel)
   );
 
   // Post-process: convert stray markdown links to HTML

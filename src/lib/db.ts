@@ -10,6 +10,10 @@ interface User {
   password_hash: string;
   name: string;
   gemini_api_key: string | null;
+  phone: string | null;
+  sms_enabled: boolean;
+  email_enabled: boolean;
+  delivery_email: string | null;
   created_at: number;
 }
 
@@ -22,6 +26,7 @@ interface Automation {
   perspective: string;
   length: string;
   frequency: string;
+  model: string;
   active: number;
   share_code: string | null;
   created_at: number;
@@ -70,6 +75,10 @@ export const db = {
       password_hash: passwordHash,
       name,
       gemini_api_key: null,
+      phone: null,
+      sms_enabled: false,
+      email_enabled: false,
+      delivery_email: null,
       created_at: Math.floor(Date.now() / 1000),
     };
     data.users.push(user);
@@ -106,6 +115,58 @@ export const db = {
     return !!key && key.length > 0;
   },
 
+  // Phone / SMS delivery. Existing user records predate these fields, so reads
+  // fall back to null/false rather than assuming the keys exist.
+  setPhone(userId: string, phone: string | null, smsEnabled: boolean) {
+    const data = load();
+    const u = data.users.find((u) => u.id === userId);
+    if (u) {
+      u.phone = phone || null;
+      u.sms_enabled = !!phone && smsEnabled;
+      save(data);
+    }
+  },
+
+  getPhone(userId: string): { phone: string | null; sms_enabled: boolean } {
+    const data = load();
+    const u = data.users.find((u) => u.id === userId);
+    return { phone: u?.phone ?? null, sms_enabled: u?.sms_enabled ?? false };
+  },
+
+  // Email delivery. Email address is the login email; email_enabled predates
+  // some records, so reads fall back to false.
+  setEmailEnabled(userId: string, enabled: boolean) {
+    const data = load();
+    const u = data.users.find((u) => u.id === userId);
+    if (u) { u.email_enabled = enabled; save(data); }
+  },
+
+  // Optional override for where digests are emailed. Blank/null reverts to the
+  // user's login email.
+  setDeliveryEmail(userId: string, email: string | null) {
+    const data = load();
+    const u = data.users.find((u) => u.id === userId);
+    if (u) { u.delivery_email = email || null; save(data); }
+  },
+
+  getEmailPrefs(userId: string): {
+    loginEmail: string | null;
+    deliveryEmail: string | null;
+    effectiveEmail: string | null;
+    email_enabled: boolean;
+  } {
+    const data = load();
+    const u = data.users.find((u) => u.id === userId);
+    const loginEmail = u?.email ?? null;
+    const deliveryEmail = u?.delivery_email ?? null;
+    return {
+      loginEmail,
+      deliveryEmail,
+      effectiveEmail: deliveryEmail || loginEmail,
+      email_enabled: u?.email_enabled ?? false,
+    };
+  },
+
   createAutomation(userId: string, input: {
     name: string;
     topic_prompt: string;
@@ -113,6 +174,7 @@ export const db = {
     perspective: string;
     length: string;
     frequency: string;
+    model: string;
   }) {
     const data = load();
     const now = Math.floor(Date.now() / 1000);
@@ -125,6 +187,7 @@ export const db = {
       perspective: input.perspective,
       length: input.length,
       frequency: input.frequency,
+      model: input.model,
       active: 1,
       share_code: null,
       created_at: now,
@@ -159,6 +222,7 @@ export const db = {
     perspective: string;
     length: string;
     frequency: string;
+    model: string;
     active: number;
   }>) {
     const data = load();
@@ -171,6 +235,7 @@ export const db = {
     if (updates.perspective !== undefined) a.perspective = updates.perspective;
     if (updates.length !== undefined) a.length = updates.length;
     if (updates.frequency !== undefined) a.frequency = updates.frequency;
+    if (updates.model !== undefined) a.model = updates.model;
     if (updates.active !== undefined) a.active = updates.active;
     a.updated_at = Math.floor(Date.now() / 1000);
 

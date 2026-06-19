@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { normalizeModel } from "@/lib/models";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   await db.ensure();
@@ -22,6 +23,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { id } = await params;
   const body = await req.json();
+  if (body.model !== undefined) body.model = normalizeModel(body.model);
   const automation = db.updateAutomation(id, session.userId, body);
   if (!automation) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

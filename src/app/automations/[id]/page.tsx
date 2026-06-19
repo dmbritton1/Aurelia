@@ -19,6 +19,7 @@ interface Automation {
   perspective: string;
   length: string;
   frequency: string;
+  model?: string;
   active: number;
   share_code: string | null;
 }
@@ -305,6 +306,7 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
                 perspective: automation.perspective,
                 length: automation.length || "standard",
                 frequency: automation.frequency,
+                model: automation.model,
               }}
             />
           </div>
